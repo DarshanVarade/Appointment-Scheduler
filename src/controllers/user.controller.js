@@ -198,4 +198,85 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
 });
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken };
+const getCurrentUser = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(new ApiResponse(200, req.user, "User details fetched successfully"));
+});
+
+const updateAccountDetails = asyncHandler(async (req, res) => {
+  const { fullName, phoneNumber } = req.body;
+
+  if (!fullName && !phoneNumber) {
+    throw new ApiError(
+      400,
+      "At least one field (fullName or phoneNumber) is required to update."
+    );
+  }
+
+  const updateData = {};
+  if (fullName) updateData.fullName = fullName;
+  if (phoneNumber) updateData.phoneNumber = phoneNumber;
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    { $set: updateData },
+    { new: true }
+  ).select("-password -refreshToken");
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Account details updated successfully"));
+});
+
+const changeCurrentPassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  if (!oldPassword || !newPassword) {
+    throw new ApiError(400, "Old password and new password are required");
+  }
+
+  const user = await User.findById(req.user?._id);
+  const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
+
+  if (!isPasswordCorrect) {
+    throw new ApiError(401, "Invalid old password");
+  }
+
+  user.password = newPassword;
+  await user.save({ validateBeforeSave: false });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Password changed successfully"));
+});
+
+const deleteUserAccount = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+
+  const user = await User.findByIdAndDelete(userId);
+
+  if (!user) {
+    throw new ApiError(404, "User not found or already deleted.");
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { deletedUser: user._id },
+        "User account deleted successfully."
+      )
+    );
+});
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  getCurrentUser,
+  updateAccountDetails,
+  changeCurrentPassword,
+  deleteUserAccount,
+};

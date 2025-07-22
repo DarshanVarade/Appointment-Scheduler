@@ -13,4 +13,8 @@ const connectDB = async () => {
   }
 };
 
+mongoose.connection.on("error", (err) => {
+  console.log("MongoDB connection error after initial connection:", err);
+});
+
 export default connectDB;
